@@ -1,8 +1,9 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 import gspread
 from google.oauth2.service_account import Credentials
+import dateutil.relativedelta # Required for robust month calculations
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -12,16 +13,10 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Google Sheets Connection Setup (Manual gspread)
+# --- Google Sheets Connection Setup ---
 try:
-    # Get the service account credentials from st.secrets
     gcp_secrets = st.secrets["connections"]["gsheets"]
-
     SCOPE = ['https://www.googleapis.com/auth/spreadsheets']
-
-    # The private_key from st.secrets needs to be formatted correctly for Credentials
-    # It typically comes with escaped newlines (\n), but gspread expects actual newlines.
-    # Replace escaped newlines with actual newlines.
     private_key = gcp_secrets["private_key"].replace("\\n", "\n")
 
     credentials = Credentials.from_service_account_info(
@@ -35,23 +30,15 @@ try:
             "auth_uri": gcp_secrets["auth_uri"],
             "token_uri": gcp_secrets["token_uri"],
             "auth_provider_x509_cert_url": gcp_secrets["auth_provider_x509_cert_url"],
-            "client_x509_cert_url": gcp_secrets["client_x509_cert_url"]
+            "client_x509_cert_url": gcp_secrets["client_x509_cert_url"],
         },
         scopes=SCOPE
     )
 
-    # Authorize gspread client
     gc = gspread.authorize(credentials)
-
-    # Open the spreadsheet using the URL from secrets
     spreadsheet_url = gcp_secrets["spreadsheet"]
-    # Extract spreadsheet ID from the URL if needed, or open by URL directly
-    # gspread can open by URL, title, or key. Using URL is usually easiest.
     sh = gc.open_by_url(spreadsheet_url)
-
-    # Define the worksheet you're working with
-    # IMPORTANT: Change "Expenses" to your actual sheet name!
-    worksheet = sh.worksheet("Expenses")
+    worksheet = sh.worksheet("Expenses") # IMPORTANT: Change "Expenses" to your actual sheet name!
 
 except Exception as e:
     st.error(
@@ -60,7 +47,36 @@ except Exception as e:
         f"your Google Cloud setup, and sheet sharing permissions. "
         f"Details: {e}"
     )
-    st.stop() # Stop the app if we can't connect to prevent further errors.
+    st.stop()
+
+# --- Load and Process All Data from Google Sheet ---
+try:
+    all_records = worksheet.get_all_records()
+    df_all_data = pd.DataFrame(all_records)
+
+    if not df_all_data.empty:
+        # Convert 'Amount' to numeric, coercing errors to NaN
+        df_all_data['Amount'] = pd.to_numeric(df_all_data['Amount'], errors='coerce')
+        df_all_data.dropna(subset=['Amount'], inplace=True) # Remove rows where Amount couldn't be parsed
+
+        # Convert 'Purchase Date' to datetime
+        # Use errors='coerce' and let Pandas infer, or try specific formats from screenshot: M/D/YYYY
+        if 'Purchase Date' in df_all_data.columns:
+            # Try to parse M/D/YYYY. If that fails, let Pandas infer.
+            try:
+                df_all_data['Purchase Date'] = pd.to_datetime(df_all_data['Purchase Date'], format="%m/%d/%Y", errors='raise')
+            except ValueError:
+                df_all_data['Purchase Date'] = pd.to_datetime(df_all_data['Purchase Date'], errors='coerce')
+            df_all_data.dropna(subset=['Purchase Date'], inplace=True) # Remove rows with unparseable dates
+
+        # Convert 'Timestamp' to datetime for true recency sorting
+        if 'Timestamp' in df_all_data.columns:
+            df_all_data['Timestamp'] = pd.to_datetime(df_all_data['Timestamp'], errors='coerce')
+            df_all_data.dropna(subset=['Timestamp'], inplace=True)
+
+except Exception as e:
+    st.error(f"Error reading or processing data from Google Sheet: {e}")
+    st.stop()
 
 # --- Function to Add Data to Google Sheet ---
 def add_transaction_to_sheet(user, purchase_date, item, amount, category, payment_method):
@@ -70,17 +86,19 @@ def add_transaction_to_sheet(user, purchase_date, item, amount, category, paymen
     try:
         # Prepare the new data as a list of values
         # Ensure order matches your Google Sheet headers exactly.
+        # Format date as M/D/YYYY to match existing data and parsing
         new_row_values = [
-            datetime.now().strftime("%m-%d-%Y %H:%M:%S"),
+            datetime.now().strftime("%m/%d/%Y %H:%M:%S"), # Timestamp
             user,
-            purchase_date.strftime("%m-%d-%Y"),
+            purchase_date.strftime("%#m/%#d/%Y"), # Format as M/D/YYYY (%#m/%#d for single digit month/day on Windows, %-m/%-d for Linux/macOS)
             item,
             amount,
             category,
             payment_method
         ]
+        # For cross-platform compatibility, a simpler format string might be needed if %#m fails on Linux/macOS
+        # On Linux/macOS: purchase_date.strftime("%-m/%-d/%Y")
 
-        # Append the new data to the worksheet
         worksheet.append_row(new_row_values)
         return True
     except Exception as e:
@@ -88,116 +106,165 @@ def add_transaction_to_sheet(user, purchase_date, item, amount, category, paymen
         return False
 
 # --- Streamlit App UI ---
-st.title("💸 Personal Expense Tracker")
+st.title("💸 Personal Expense & Income Tracker")
 st.markdown("Easily log your financial transactions to keep track of where your money goes.")
 
 st.markdown("---") # Visual separator
 
 st.subheader("Record a New Transaction")
 
-# Using a Streamlit form for better input management and atomic submission
-with st.form(key="transaction_form", clear_on_submit=True):
+# --- Custom Date Input Simulation (as requested previously) ---
+if 'selected_transaction_date' not in st.session_state:
+    st.session_state.selected_transaction_date = datetime.today().date()
 
-    # User (Radio buttons for choice)
+st.write("**Date of Transaction**")
+
+col1, col2, col3, col4 = st.columns([1, 1, 1, 3])
+
+with col1:
+    if st.button("⬅️ Previous Day", key="prev_day"):
+        st.session_state.selected_transaction_date -= timedelta(days=1)
+with col2:
+    if st.button("🏠 Today", key="today_date"):
+        st.session_state.selected_transaction_date = datetime.today().date()
+with col3:
+    if st.button("Next Day ➡️", key="next_day", disabled=(st.session_state.selected_transaction_date >= datetime.today().date())):
+        st.session_state.selected_transaction_date += timedelta(days=1)
+
+with col4:
+    st.session_state.selected_transaction_date = st.date_input(
+        "Select Date",
+        value=st.session_state.selected_transaction_date,
+        key="direct_date_input",
+        label_visibility="collapsed"
+    )
+
+# --- Transaction Form ---
+with st.form(key="transaction_form", clear_on_submit=True):
+    transaction_date_form = st.session_state.selected_transaction_date # Use the date from session state
+
     users_options = ["Mikael", "Josephine"]
     selected_user = st.radio(
-        "**Who is making this transaction?**",
-        options=users_options,
-        index=0, # Defaults to the first user in the list
-        help="Select the individual associated with this transaction."
+        "**Who is making this transaction?**", options=users_options, index=0
     )
-
-    # Date (Date input widget)
-    transaction_date = st.date_input(
-        "**Date of Transaction**",
-        value=datetime.today(), # Defaults to today's date
-        help="Choose the date the transaction occurred."
-    )
-
-    # Item Description (Text input)
     item_description = st.text_input(
-        "**Item Description**",
-        placeholder="e.g., Groceries from ABC Mart, Monthly Salary, Coffee Shop",
-        help="Provide a brief description of the item or source of income."
+        "**Item Description**", placeholder="e.g., Groceries"
     )
-
-    # Amount (Number input)
     amount_value = st.number_input(
-        "**Amount**",
-        min_value=0.01, # Ensure amount is positive
-        format="%.2f", # Display as currency with 2 decimal places
-        help="Enter the monetary value of the transaction."
+        "**Amount**", min_value=0.01, format="%.2f"
     )
-
-    # Category (Dropdown select box)
     category_options = [
         "Bills", "Subscriptions", "Entertainment", "Food & Drink", "Groceries",
         "Health & Wellbeing", "Shopping", "Transport", "Travel", "Business",
         "Gifts", "Other"
     ]
     selected_category = st.selectbox(
-        "**Category**",
-        options=category_options,
-        index=0, # Defaults to the first category
-        help="Select the category that best describes this transaction."
+        "**Category**", options=category_options, index=0
     )
-
-    # Payment Method
     payment_method_options = ["CC", "Debit", "Cash"]
     selected_payment_method = st.radio(
-        "**Payment Method**",
-        options=payment_method_options,
-        index=0, # Defaults to the first option
-        help="How was this transaction paid?"
+        "**Payment Method**", options=payment_method_options, index=0
     )
 
-    st.markdown("---") # Visual separator
-
-    # Submit Button
+    st.markdown("---")
     submit_button = st.form_submit_button(label="🚀 Add Transaction")
 
-    # Handle form submission
     if submit_button:
-        # --- Basic Input Validation ---
         if not item_description:
             st.error("🚨 Please provide an **Item Description**.")
         elif amount_value <= 0:
             st.error("🚨 **Amount** must be a positive value.")
         else:
-            # Show a spinner while saving data
             with st.spinner("Saving transaction..."):
                 if add_transaction_to_sheet(
                     selected_user,
-                    transaction_date,
+                    transaction_date_form, # Use the date from the date input
                     item_description,
                     amount_value,
                     selected_category,
                     selected_payment_method
                 ):
                     st.success("✅ Transaction successfully added!")
+                    # Refresh data after adding a new transaction
+                    # This will re-run the script and fetch latest data
+                    st.rerun()
                 else:
                     st.warning("⚠️ Could not add transaction. Check error messages above.")
 
+st.markdown("---")
+
+# --- Visual 1: Total Expenses for Specific Categories (Recurring Monthly) ---
+st.subheader("📊 Expense Analytics")
+st.markdown("#### Monthly Category Spending")
+
+if not df_all_data.empty and 'Category' in df_all_data.columns and 'Amount' in df_all_data.columns:
+    # Define the recurring monthly period (e.g., 28th to 28th)
+    today_date_period_calc = datetime.today().date()
+
+    if today_date_period_calc.day >= 28:
+        period_start = today_date_period_calc.replace(day=28)
+        period_end = period_start + dateutil.relativedelta.relativedelta(months=1)
+    else:
+        period_end = today_date_period_calc.replace(day=28)
+        period_start = period_end - dateutil.relativedelta.relativedelta(months=1)
+
+    st.info(f"Analyzing expenses from **{period_start.strftime('%B %d, %Y')}** to **{(period_end - timedelta(days=1)).strftime('%B %d, %Y')}**")
+
+    # Filter data for the current period
+    df_period = df_all_data[
+        (df_all_data['Purchase Date'] >= pd.to_datetime(period_start)) &
+        (df_all_data['Purchase Date'] < pd.to_datetime(period_end))
+    ].copy() # Use .copy() to avoid SettingWithCopyWarning
+
+    # Filter for specified categories
+    target_categories = ["Bills", "Food & Drink", "Transport"]
+    df_filtered_categories = df_period[df_period['Category'].isin(target_categories)]
+
+    if not df_filtered_categories.empty:
+        category_spending = df_filtered_categories.groupby('Category')['Amount'].sum().reset_index()
+        category_spending.rename(columns={'Amount': 'Total Spending'}, inplace=True)
+        
+        # Ensure all target categories are in the dataframe, even if they have 0 spending
+        full_category_df = pd.DataFrame({'Category': target_categories})
+        category_spending = pd.merge(full_category_df, category_spending, on='Category', how='left').fillna(0)
+
+
+        st.bar_chart(category_spending.set_index('Category'))
+        st.write("Total spending in selected categories for the period:")
+        st.dataframe(category_spending, use_container_width=True)
+    else:
+        st.info("No transactions found for the selected categories in the current period.")
+else:
+    st.info("Not enough data to display monthly category spending.")
+
+st.markdown("---")
+
+# --- Visual 2: Total Spending Per User ---
+st.markdown("#### Total Spending Per User (All Time)")
+
+if not df_all_data.empty and 'User' in df_all_data.columns and 'Amount' in df_all_data.columns:
+    user_spending = df_all_data.groupby('User')['Amount'].sum().reset_index()
+    user_spending.rename(columns={'Amount': 'Total Spending'}, inplace=True)
+
+    st.bar_chart(user_spending.set_index('User'))
+    st.write("Total spending per user (all recorded transactions):")
+    st.dataframe(user_spending, use_container_width=True)
+else:
+    st.info("No user data or transactions found for spending analysis.")
+
 st.markdown("---") # Final separator
 
-st.info("💡 Your data is securely saved to your linked Google Sheet. You can view and analyze it there.")
-
-# This section reads and displays the last few entries from your Google Sheet.
+# --- Recent Transactions Display (using df_all_data) ---
 st.subheader("📝 Recent Transactions")
-try:
-    # Read all records as a list of lists, then convert to DataFrame
-    all_records = worksheet.get_all_records()
-    df_recent = pd.DataFrame(all_records)
-    
-    if not df_recent.empty:
-        # Display the last 10 entries. Sort by Purchase Date.
-        if 'Purchase Date' in df_recent.columns:
-            df_recent['Purchase Date'] = pd.to_datetime(df_recent['Purchase Date'], format="%m/%d/%Y", errors='coerce')
-            df_recent['Purchase Date'] = df_recent["Purchase Date"].dt.date
-            df_recent = df_recent.sort_values(by='Purchase Date', ascending=False)
-        
-        st.dataframe(df_recent.head(10), use_container_width=True)
-    else:
-        st.info("No transactions found in the sheet yet. Add your first one above!")
-except Exception as e:
-    st.warning(f"Couldn't fetch recent transactions. Check sheet permissions or data format. Error: {e}")
+if not df_all_data.empty:
+    df_display = df_all_data.copy() # Use a copy for display manipulation
+
+    # Sort by Timestamp if available, otherwise by Purchase Date for true recency
+    if 'Timestamp' in df_display.columns and pd.api.types.is_datetime64_any_dtype(df_display['Timestamp']):
+        df_display = df_display.sort_values(by='Timestamp', ascending=False)
+    elif 'Purchase Date' in df_display.columns and pd.api.types.is_datetime64_any_dtype(df_display['Purchase Date']):
+        df_display = df_display.sort_values(by='Purchase Date', ascending=False)
+
+    st.dataframe(df_display.head(10), use_container_width=True)
+else:
+    st.info("No transactions found in the sheet yet. Add your first one above!")
