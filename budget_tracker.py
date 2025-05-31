@@ -227,7 +227,12 @@ if not df_all_data.empty and 'Category' in df_all_data.columns and 'Amount' in d
         st.altair_chart(chart_category + text_category, use_container_width=True)
 
         st.write("Total spending in selected categories for the period:")
-        st.dataframe(category_spending_display, use_container_width=True)
+        st.dataframe(category_spending, column_config={
+                "Total Spending": st.column_config.NumberColumn(
+                    "Total Spending",
+                    format="%,.2f", # Comma for thousands, 2 decimal places
+                )
+            }, use_container_width=True)
     else:
         st.info("No transactions found for the selected categories in the current period.")
 else:
