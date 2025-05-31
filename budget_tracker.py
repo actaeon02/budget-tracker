@@ -96,9 +96,9 @@ def add_transaction_to_sheet(user, purchase_date: datetime, item, amount, catego
         jakarta_time = now_utc.astimezone(jakarta_tz)
 
         new_row_values = [
-            jakarta_time.strftime("%m-%d-%Y %H:%M:%S"), # Timestamp
+            jakarta_time.strftime("%m/%d/%Y %H:%M:%S"), # Timestamp
             user,
-            f"{purchase_date.month:02d}/{purchase_date.day:02d}/{purchase_date.year}",
+            purchase_date,
             item,
             amount,
             category,
@@ -163,7 +163,7 @@ with st.form(key="transaction_form", clear_on_submit=True):
             with st.spinner("Saving transaction..."):
                 if add_transaction_to_sheet(
                     selected_user,
-                    transaction_date_form, # Use the date from the date input
+                    transaction_date_form.strftime("%m/%d/%Y"), # Use the date from the date input
                     item_description,
                     amount_value,
                     selected_category,
