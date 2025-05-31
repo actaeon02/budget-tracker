@@ -230,7 +230,7 @@ if not df_all_data.empty and 'Category' in df_all_data.columns and 'Amount' in d
         st.dataframe(category_spending, column_config={
                 "Total Spending": st.column_config.NumberColumn(
                     "Total Spending",
-                    format=",", # Comma for thousands, 2 decimal places
+                    format="%,", # Comma for thousands, 2 decimal places
                 )
             }, use_container_width=True)
     else:
