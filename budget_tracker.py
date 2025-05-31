@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+import gspread
+from google.oauth2.service_account import Credentials
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -10,42 +12,73 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- Google Sheets Connection ---
-# This attempts to connect to your Google Sheet using credentials
-# stored in .streamlit/secrets.toml under the 'gsheets' section.
+# Google Sheets Connection Setup (Manual gspread)
 try:
-    conn = st.connection("gsheets")
+    # Get the service account credentials from st.secrets
+    gcp_secrets = st.secrets["connections"]["gsheets"]
+
+    # The private_key from st.secrets needs to be formatted correctly for Credentials
+    # It typically comes with escaped newlines (\n), but gspread expects actual newlines.
+    # Replace escaped newlines with actual newlines.
+    private_key = gcp_secrets["private_key"].replace("\\n", "\n")
+
+    credentials = Credentials.from_service_account_info(
+        {
+            "type": gcp_secrets["type"],
+            "project_id": gcp_secrets["project_id"],
+            "private_key_id": gcp_secrets["private_key_id"],
+            "private_key": private_key,
+            "client_email": gcp_secrets["client_email"],
+            "client_id": gcp_secrets["client_id"],
+            "auth_uri": gcp_secrets["auth_uri"],
+            "token_uri": gcp_secrets["token_uri"],
+            "auth_provider_x509_cert_url": gcp_secrets["auth_provider_x509_cert_url"],
+            "client_x509_cert_url": gcp_secrets["client_x509_cert_url"]
+        }
+    )
+
+    # Authorize gspread client
+    gc = gspread.authorize(credentials)
+
+    # Open the spreadsheet using the URL from secrets
+    spreadsheet_url = gcp_secrets["spreadsheet"]
+    # Extract spreadsheet ID from the URL if needed, or open by URL directly
+    # gspread can open by URL, title, or key. Using URL is usually easiest.
+    sh = gc.open_by_url(spreadsheet_url)
+
+    # Define the worksheet you're working with
+    # IMPORTANT: Change "Expenses" to your actual sheet name!
+    worksheet = sh.worksheet("Expenses")
+
 except Exception as e:
     st.error(
         f"**Connection Error:** Couldn't connect to Google Sheets. "
-        f"Please double-check your `secrets.toml` file and Google Cloud setup. "
+        f"Please double-check your `secrets.toml` content in Streamlit Cloud, "
+        f"your Google Cloud setup, and sheet sharing permissions. "
         f"Details: {e}"
     )
     st.stop() # Stop the app if we can't connect to prevent further errors.
 
 # --- Function to Add Data to Google Sheet ---
-def add_transaction_to_sheet(user, date, item, amount, category, payment_method):
+def add_transaction_to_sheet(user, purchase_date, item, amount, category, payment_method):
     """
     Appends a new row of transaction data (expense or income) to the Google Sheet.
     """
     try:
-        # Prepare the new data as a DataFrame
-        # Ensure column names match your Google Sheet headers exactly.
-        new_data = pd.DataFrame([{
-            "Timestamp": datetime.now().strftime("%m-%d-%Y %H:%M:%S"),
-            "User": user,
-            "Purchase Date": date.strftime("%m-%d-%Y"),
-            "Item": item,
-            "Amount": amount,
-            "Category": category,
-            "Payment Method": payment_method
-        }])
+        # Prepare the new data as a list of values
+        # Ensure order matches your Google Sheet headers exactly.
+        new_row_values = [
+            datetime.now().strftime("%m-%d-%Y %H:%M:%S"),
+            user,
+            purchase_date.strftime("%m-%d-%Y"),
+            item,
+            amount,
+            category,
+            payment_method
+        ]
 
-        # Append the new data to the specified worksheet
-        conn.append(
-            worksheet="Expenses", # <<-- IMPORTANT: Change if your sheet name is different!
-            data=new_data
-        )
+        # Append the new data to the worksheet
+        worksheet.append_row(new_row_values)
         return True
     except Exception as e:
         st.error(f"**Failed to save transaction:** {e}")
@@ -95,7 +128,7 @@ with st.form(key="transaction_form", clear_on_submit=True):
 
     # Category (Dropdown select box)
     category_options = [
-        "Bills", "Subscriptions", "Entertainment", "Food & Drink", "Groceris",
+        "Bills", "Subscriptions", "Entertainment", "Food & Drink", "Groceries",
         "Health & Wellbeing", "Shopping", "Transport", "Travel", "Business",
         "Gifts", "Other"
     ]
@@ -147,17 +180,17 @@ st.markdown("---") # Final separator
 st.info("💡 Your data is securely saved to your linked Google Sheet. You can view and analyze it there.")
 
 # This section reads and displays the last few entries from your Google Sheet.
-# It's useful for immediate verification.
 st.subheader("📝 Recent Transactions")
 try:
-    # Read the data from your sheet. 'ttl=5' means it will cache the data for 5 minutes.
-    df_recent = conn.read(worksheet="Expenses", ttl=5)
+    # Read all records as a list of lists, then convert to DataFrame
+    all_records = worksheet.get_all_records()
+    df_recent = pd.DataFrame(all_records)
     
     if not df_recent.empty:
-        # Display the last 10 entries. Sort by Date if you have it.
+        # Display the last 10 entries. Sort by Purchase Date.
         if 'Purchase Date' in df_recent.columns:
-            df_recent['Date'] = pd.to_datetime(df_recent['Date'], errors='coerce')
-            df_recent = df_recent.sort_values(by='Date', ascending=False)
+            df_recent['Purchase Date'] = pd.to_datetime(df_recent['Purchase Date'], format="%m-%d-%Y", errors='coerce')
+            df_recent = df_recent.sort_values(by='Purchase Date', ascending=False)
         
         st.dataframe(df_recent.head(10), use_container_width=True)
     else:
