@@ -224,7 +224,7 @@ if not df_all_data.empty and 'Category' in df_all_data.columns and 'Amount' in d
         st.altair_chart(chart_category + text_category, use_container_width=True)
 
         st.write("Total spending in selected categories for the period:")
-        st.dataframe(category_spending, use_container_width=True)
+        st.dataframe(category_spending.style.format({"Total Spending": "{:,.0f}"}), use_container_width=True)
     else:
         st.info("No transactions found for the selected categories in the current period.")
 else:
@@ -259,7 +259,7 @@ if not df_period.empty and 'User' in df_period.columns and 'Amount' in df_period
     st.altair_chart(chart_user + text_user, use_container_width=True)
 
     st.write("Total spending per user for the period:")
-    st.dataframe(user_spending, use_container_width=True)
+    st.dataframe(user_spending.style.format({"Total Spending": "{:,.0f}"}), use_container_width=True)
 else:
     st.info("No user data or transactions found for spending analysis in the current period.")
 
