@@ -282,6 +282,8 @@ if not df_all_data.empty:
 
     df_display["Purchase Date"] = df_display["Purchase Date"].dt.date
 
+    df_display["Timestamp"].drop()
+
     st.dataframe(df_display.tail(10), use_container_width=True)
 else:
     st.info("No transactions found in the sheet yet. Add your first one above!")
