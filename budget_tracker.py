@@ -17,6 +17,8 @@ try:
     # Get the service account credentials from st.secrets
     gcp_secrets = st.secrets["connections"]["gsheets"]
 
+    SCOPE = ['https://www.googleapis.com/auth/spreadsheets']
+
     # The private_key from st.secrets needs to be formatted correctly for Credentials
     # It typically comes with escaped newlines (\n), but gspread expects actual newlines.
     # Replace escaped newlines with actual newlines.
@@ -34,7 +36,8 @@ try:
             "token_uri": gcp_secrets["token_uri"],
             "auth_provider_x509_cert_url": gcp_secrets["auth_provider_x509_cert_url"],
             "client_x509_cert_url": gcp_secrets["client_x509_cert_url"]
-        }
+        },
+        scopes=SCOPE
     )
 
     # Authorize gspread client
