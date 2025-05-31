@@ -98,7 +98,7 @@ def add_transaction_to_sheet(user, purchase_date: datetime, item, amount, catego
         new_row_values = [
             jakarta_time.strftime("%m-%d-%Y %H:%M:%S"), # Timestamp
             user,
-            purchase_date.date().isoformat(),
+            purchase_date.isoformat(),
             item,
             amount,
             category,
