@@ -282,7 +282,7 @@ if not df_all_data.empty:
 
     df_display["Purchase Date"] = df_display["Purchase Date"].dt.date
 
-    df_display["Timestamp"].drop()
+    df_display = df_display.drop("Timestamp", axis=1)
 
     st.dataframe(df_display.tail(10), use_container_width=True)
 else:
