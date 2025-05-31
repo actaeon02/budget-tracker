@@ -5,6 +5,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 import dateutil.relativedelta
 import altair as alt # Import Altair for custom chart labels
+import pytz
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -84,12 +85,18 @@ def add_transaction_to_sheet(user, purchase_date, item, amount, category, paymen
     """
     Appends a new row of transaction data (expense or income) to the Google Sheet.
     """
+    # Define the Jakarta timezone
+    jakarta_tz = pytz.timezone('Asia/Jakarta')
+
     try:
         # Prepare the new data as a list of values
         # Ensure order matches your Google Sheet headers exactly.
         # Format date as M/D/YYYY to match existing data and parsing
+        now_utc = datetime.now(pytz.utc)
+        jakarta_time = now_utc.astimezone(jakarta_tz)
+
         new_row_values = [
-            datetime.now().strftime("%m-%d-%Y %H:%M:%S"), # Timestamp
+            jakarta_time.strftime("%m-%d-%Y %H:%M:%S"), # Timestamp
             user,
             purchase_date.strftime("%m/%d/%Y"), # Windows: %#m/%#d. Linux/macOS: %-m/%-d
             item,
