@@ -218,7 +218,7 @@ if not df_all_data.empty and 'Category' in df_all_data.columns and 'Amount' in d
             dy=-100 # Nudges text up slightly
         ).encode(
             text=alt.Text('Total Spending', format=',.0f'), # Format as whole numbers with comma separators
-            color=alt.value('black')
+            color=alt.value('white')
         )
 
         st.altair_chart(chart_category + text_category, use_container_width=True)
