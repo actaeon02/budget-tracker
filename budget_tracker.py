@@ -207,7 +207,7 @@ if not df_all_data.empty and 'Category' in df_all_data.columns and 'Amount' in d
 
         # Build Altair chart with labels
         chart_category = alt.Chart(category_spending).mark_bar().encode(
-            x=alt.X('Category', sort=target_categories, title=None), # Order and hide label
+            x=alt.X('Category', sort=target_categories, title=None, axis=alt.Axis(labelAngle=0)), # Order and hide label
             y=alt.Y('Total Spending', title='Total Spending (IDR)'),
             tooltip=['Category', alt.Tooltip('Total Spending', format=',.2f')]
         )
@@ -242,7 +242,7 @@ if not df_period.empty and 'User' in df_period.columns and 'Amount' in df_period
 
     # Build Altair chart with labels
     chart_user = alt.Chart(user_spending).mark_bar().encode(
-        x=alt.X('User', title=None), # Hide x-axis label
+        x=alt.X('User', title=None, axis=alt.Axis(labelAngle=0)), # Hide x-axis label
         y=alt.Y('Total Spending', title='Total Spending (IDR)'),
         tooltip=['User', alt.Tooltip('Total Spending', format=',.2f')]
     )
@@ -250,10 +250,10 @@ if not df_period.empty and 'User' in df_period.columns and 'Amount' in df_period
     text_user = chart_user.mark_text(
         align='center',
         baseline='middle',
-        dy=-8 # Nudges text up slightly
+        dy=-10 # Nudges text up slightly
     ).encode(
         text=alt.Text('Total Spending', format=',.0f'), # Format as whole numbers with comma separators
-        color=alt.value('black')
+        color=alt.value('white')
     )
 
     st.altair_chart(chart_user + text_user, use_container_width=True)
