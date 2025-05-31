@@ -214,7 +214,7 @@ if not df_all_data.empty and 'Category' in df_all_data.columns and 'Amount' in d
 
         text_category = chart_category.mark_text(
             align='center',
-            baseline='bottom',
+            baseline='top',
             dy=-8 # Nudges text up slightly
         ).encode(
             text=alt.Text('Total Spending', format=',.0f'), # Format as whole numbers with comma separators
@@ -233,7 +233,7 @@ else:
 st.markdown("---")
 
 # --- Visual 2: Total Spending Per User (Current Period) ---
-st.markdown("#### Total Spending Per User (Current Period)")
+st.markdown("#### Total Spending Per User")
 
 # Use df_period to filter by the current monthly date range
 if not df_period.empty and 'User' in df_period.columns and 'Amount' in df_period.columns:
@@ -249,7 +249,7 @@ if not df_period.empty and 'User' in df_period.columns and 'Amount' in df_period
 
     text_user = chart_user.mark_text(
         align='center',
-        baseline='bottom',
+        baseline='top',
         dy=-8 # Nudges text up slightly
     ).encode(
         text=alt.Text('Total Spending', format=',.0f'), # Format as whole numbers with comma separators
