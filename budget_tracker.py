@@ -201,6 +201,9 @@ if not df_all_data.empty and 'Category' in df_all_data.columns and 'Amount' in d
         category_spending = df_filtered_categories.groupby('Category')['Amount'].sum().reset_index()
         category_spending.rename(columns={'Amount': 'Total Spending'}, inplace=True)
 
+        category_spending_display = category_spending.copy()
+        category_spending_display['Total Spending'] = category_spending_display['Total Spending'].map('{:,.2f}'.format)
+
         # Ensure all target categories are in the dataframe, even if they have 0 spending
         full_category_df = pd.DataFrame({'Category': target_categories})
         category_spending = pd.merge(full_category_df, category_spending, on='Category', how='left').fillna(0)
@@ -224,7 +227,7 @@ if not df_all_data.empty and 'Category' in df_all_data.columns and 'Amount' in d
         st.altair_chart(chart_category + text_category, use_container_width=True)
 
         st.write("Total spending in selected categories for the period:")
-        st.dataframe(category_spending.style.format({"Total Spending": "{:,.0f}"}), use_container_width=True)
+        st.dataframe(category_spending_display, use_container_width=True)
     else:
         st.info("No transactions found for the selected categories in the current period.")
 else:
