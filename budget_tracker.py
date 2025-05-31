@@ -280,13 +280,8 @@ st.subheader("📝 Recent Transactions")
 if not df_all_data.empty:
     df_display = df_all_data.copy()
 
-    if 'Timestamp' in df_display.columns and pd.api.types.is_datetime64_any_dtype(df_display['Timestamp']):
-        df_display = df_display.sort_values(by='Timestamp', ascending=False)
-    elif 'Purchase Date' in df_display.columns and pd.api.types.is_datetime64_any_dtype(df_display['Purchase Date']):
-        df_display = df_display.sort_values(by='Purchase Date', ascending=False)
-
     df_display["Purchase Date"] = df_display["Purchase Date"].dt.date
 
-    st.dataframe(df_display.head(10), use_container_width=True)
+    st.dataframe(df_display.tail(10), use_container_width=True)
 else:
     st.info("No transactions found in the sheet yet. Add your first one above!")
