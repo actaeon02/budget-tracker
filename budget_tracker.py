@@ -215,7 +215,7 @@ if not df_all_data.empty and 'Category' in df_all_data.columns and 'Amount' in d
         text_category = chart_category.mark_text(
             align='center',
             baseline='middle',
-            dy=-100 # Nudges text up slightly
+            dy=-10 # Nudges text up slightly
         ).encode(
             text=alt.Text('Total Spending', format=',.0f'), # Format as whole numbers with comma separators
             color=alt.value('white')
