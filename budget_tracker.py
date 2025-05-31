@@ -3,7 +3,8 @@ import pandas as pd
 from datetime import datetime, timedelta
 import gspread
 from google.oauth2.service_account import Credentials
-import dateutil.relativedelta # Required for robust month calculations
+import dateutil.relativedelta
+import altair as alt # Import Altair for custom chart labels
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -60,12 +61,12 @@ try:
         df_all_data.dropna(subset=['Amount'], inplace=True) # Remove rows where Amount couldn't be parsed
 
         # Convert 'Purchase Date' to datetime
-        # Use errors='coerce' and let Pandas infer, or try specific formats from screenshot: M/D/YYYY
         if 'Purchase Date' in df_all_data.columns:
-            # Try to parse M/D/YYYY. If that fails, let Pandas infer.
             try:
+                # Try to parse M/D/YYYY (from screenshot)
                 df_all_data['Purchase Date'] = pd.to_datetime(df_all_data['Purchase Date'], format="%m/%d/%Y", errors='raise')
             except ValueError:
+                # Fallback to general inference if specific format fails
                 df_all_data['Purchase Date'] = pd.to_datetime(df_all_data['Purchase Date'], errors='coerce')
             df_all_data.dropna(subset=['Purchase Date'], inplace=True) # Remove rows with unparseable dates
 
@@ -88,16 +89,14 @@ def add_transaction_to_sheet(user, purchase_date, item, amount, category, paymen
         # Ensure order matches your Google Sheet headers exactly.
         # Format date as M/D/YYYY to match existing data and parsing
         new_row_values = [
-            datetime.now().strftime("%m/%d/%Y %H:%M:%S"), # Timestamp
+            datetime.now().strftime("%m-%d-%Y %H:%M:%S"), # Timestamp
             user,
-            purchase_date.strftime("%#m/%#d/%Y"), # Format as M/D/YYYY (%#m/%#d for single digit month/day on Windows, %-m/%-d for Linux/macOS)
+            purchase_date.strftime("%#m/%#d/%Y"), # Windows: %#m/%#d. Linux/macOS: %-m/%-d
             item,
             amount,
             category,
             payment_method
         ]
-        # For cross-platform compatibility, a simpler format string might be needed if %#m fails on Linux/macOS
-        # On Linux/macOS: purchase_date.strftime("%-m/%-d/%Y")
 
         worksheet.append_row(new_row_values)
         return True
@@ -113,36 +112,15 @@ st.markdown("---") # Visual separator
 
 st.subheader("Record a New Transaction")
 
-# --- Custom Date Input Simulation (as requested previously) ---
-if 'selected_transaction_date' not in st.session_state:
-    st.session_state.selected_transaction_date = datetime.today().date()
-
-st.write("**Date of Transaction**")
-
-col1, col2, col3, col4 = st.columns([1, 1, 1, 3])
-
-with col1:
-    if st.button("⬅️ Previous Day", key="prev_day"):
-        st.session_state.selected_transaction_date -= timedelta(days=1)
-with col2:
-    if st.button("🏠 Today", key="today_date"):
-        st.session_state.selected_transaction_date = datetime.today().date()
-with col3:
-    if st.button("Next Day ➡️", key="next_day", disabled=(st.session_state.selected_transaction_date >= datetime.today().date())):
-        st.session_state.selected_transaction_date += timedelta(days=1)
-
-with col4:
-    st.session_state.selected_transaction_date = st.date_input(
-        "Select Date",
-        value=st.session_state.selected_transaction_date,
-        key="direct_date_input",
-        label_visibility="collapsed"
-    )
+# --- Date Input (Back to Default) ---
+transaction_date_form = st.date_input(
+    "**Date of Transaction**",
+    value=datetime.today().date(), # Defaults to today's date
+    help="Choose the date the transaction occurred."
+)
 
 # --- Transaction Form ---
 with st.form(key="transaction_form", clear_on_submit=True):
-    transaction_date_form = st.session_state.selected_transaction_date # Use the date from session state
-
     users_options = ["Mikael", "Josephine"]
     selected_user = st.radio(
         "**Who is making this transaction?**", options=users_options, index=0
@@ -185,51 +163,66 @@ with st.form(key="transaction_form", clear_on_submit=True):
                     selected_payment_method
                 ):
                     st.success("✅ Transaction successfully added!")
-                    # Refresh data after adding a new transaction
-                    # This will re-run the script and fetch latest data
-                    st.rerun()
+                    st.rerun() # Refresh data after adding a new transaction
                 else:
                     st.warning("⚠️ Could not add transaction. Check error messages above.")
 
 st.markdown("---")
+
+# --- Define the Recurring Monthly Period ---
+today_date_period_calc = datetime.today().date()
+
+if today_date_period_calc.day >= 28:
+    period_start = today_date_period_calc.replace(day=28)
+    period_end = period_start + dateutil.relativedelta.relativedelta(months=1)
+else:
+    period_end = today_date_period_calc.replace(day=28)
+    period_start = period_end - dateutil.relativedelta.relativedelta(months=1)
+
+# Filter all data for the current period
+df_period = df_all_data[
+    (df_all_data['Purchase Date'] >= pd.to_datetime(period_start)) &
+    (df_all_data['Purchase Date'] < pd.to_datetime(period_end))
+].copy() # Use .copy() to avoid SettingWithCopyWarning
+
 
 # --- Visual 1: Total Expenses for Specific Categories (Recurring Monthly) ---
 st.subheader("📊 Expense Analytics")
 st.markdown("#### Monthly Category Spending")
 
 if not df_all_data.empty and 'Category' in df_all_data.columns and 'Amount' in df_all_data.columns:
-    # Define the recurring monthly period (e.g., 28th to 28th)
-    today_date_period_calc = datetime.today().date()
-
-    if today_date_period_calc.day >= 28:
-        period_start = today_date_period_calc.replace(day=28)
-        period_end = period_start + dateutil.relativedelta.relativedelta(months=1)
-    else:
-        period_end = today_date_period_calc.replace(day=28)
-        period_start = period_end - dateutil.relativedelta.relativedelta(months=1)
-
     st.info(f"Analyzing expenses from **{period_start.strftime('%B %d, %Y')}** to **{(period_end - timedelta(days=1)).strftime('%B %d, %Y')}**")
 
-    # Filter data for the current period
-    df_period = df_all_data[
-        (df_all_data['Purchase Date'] >= pd.to_datetime(period_start)) &
-        (df_all_data['Purchase Date'] < pd.to_datetime(period_end))
-    ].copy() # Use .copy() to avoid SettingWithCopyWarning
-
-    # Filter for specified categories
+    # Filter for specified categories within the period
     target_categories = ["Bills", "Food & Drink", "Transport"]
     df_filtered_categories = df_period[df_period['Category'].isin(target_categories)]
 
     if not df_filtered_categories.empty:
         category_spending = df_filtered_categories.groupby('Category')['Amount'].sum().reset_index()
         category_spending.rename(columns={'Amount': 'Total Spending'}, inplace=True)
-        
+
         # Ensure all target categories are in the dataframe, even if they have 0 spending
         full_category_df = pd.DataFrame({'Category': target_categories})
         category_spending = pd.merge(full_category_df, category_spending, on='Category', how='left').fillna(0)
 
+        # Build Altair chart with labels
+        chart_category = alt.Chart(category_spending).mark_bar().encode(
+            x=alt.X('Category', sort=target_categories, title=None), # Order and hide label
+            y=alt.Y('Total Spending', title='Total Spending (IDR)'),
+            tooltip=['Category', alt.Tooltip('Total Spending', format=',.2f')]
+        )
 
-        st.bar_chart(category_spending.set_index('Category'))
+        text_category = chart_category.mark_text(
+            align='center',
+            baseline='bottom',
+            dy=-8 # Nudges text up slightly
+        ).encode(
+            text=alt.Text('Total Spending', format=',.0f'), # Format as whole numbers with comma separators
+            color=alt.value('black')
+        )
+
+        st.altair_chart(chart_category + text_category, use_container_width=True)
+
         st.write("Total spending in selected categories for the period:")
         st.dataframe(category_spending, use_container_width=True)
     else:
@@ -239,31 +232,50 @@ else:
 
 st.markdown("---")
 
-# --- Visual 2: Total Spending Per User ---
-st.markdown("#### Total Spending Per User (All Time)")
+# --- Visual 2: Total Spending Per User (Current Period) ---
+st.markdown("#### Total Spending Per User (Current Period)")
 
-if not df_all_data.empty and 'User' in df_all_data.columns and 'Amount' in df_all_data.columns:
-    user_spending = df_all_data.groupby('User')['Amount'].sum().reset_index()
+# Use df_period to filter by the current monthly date range
+if not df_period.empty and 'User' in df_period.columns and 'Amount' in df_period.columns:
+    user_spending = df_period.groupby('User')['Amount'].sum().reset_index()
     user_spending.rename(columns={'Amount': 'Total Spending'}, inplace=True)
 
-    st.bar_chart(user_spending.set_index('User'))
-    st.write("Total spending per user (all recorded transactions):")
+    # Build Altair chart with labels
+    chart_user = alt.Chart(user_spending).mark_bar().encode(
+        x=alt.X('User', title=None), # Hide x-axis label
+        y=alt.Y('Total Spending', title='Total Spending (IDR)'),
+        tooltip=['User', alt.Tooltip('Total Spending', format=',.2f')]
+    )
+
+    text_user = chart_user.mark_text(
+        align='center',
+        baseline='bottom',
+        dy=-8 # Nudges text up slightly
+    ).encode(
+        text=alt.Text('Total Spending', format=',.0f'), # Format as whole numbers with comma separators
+        color=alt.value('black')
+    )
+
+    st.altair_chart(chart_user + text_user, use_container_width=True)
+
+    st.write("Total spending per user for the period:")
     st.dataframe(user_spending, use_container_width=True)
 else:
-    st.info("No user data or transactions found for spending analysis.")
+    st.info("No user data or transactions found for spending analysis in the current period.")
 
 st.markdown("---") # Final separator
 
 # --- Recent Transactions Display (using df_all_data) ---
 st.subheader("📝 Recent Transactions")
 if not df_all_data.empty:
-    df_display = df_all_data.copy() # Use a copy for display manipulation
+    df_display = df_all_data.copy()
 
-    # Sort by Timestamp if available, otherwise by Purchase Date for true recency
     if 'Timestamp' in df_display.columns and pd.api.types.is_datetime64_any_dtype(df_display['Timestamp']):
         df_display = df_display.sort_values(by='Timestamp', ascending=False)
     elif 'Purchase Date' in df_display.columns and pd.api.types.is_datetime64_any_dtype(df_display['Purchase Date']):
         df_display = df_display.sort_values(by='Purchase Date', ascending=False)
+
+    df_display["Purchase Date"] = df_display["Purchase Date"].dt.date
 
     st.dataframe(df_display.head(10), use_container_width=True)
 else:
