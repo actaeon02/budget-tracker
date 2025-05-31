@@ -192,7 +192,7 @@ try:
     if not df_recent.empty:
         # Display the last 10 entries. Sort by Purchase Date.
         if 'Purchase Date' in df_recent.columns:
-            df_recent['Purchase Date'] = pd.to_datetime(df_recent['Purchase Date'], format="%d/%m/%Y", errors='coerce')
+            df_recent['Purchase Date'] = pd.to_datetime(df_recent['Purchase Date'], format="%m/%d/%Y", errors='coerce')
             df_recent = df_recent.sort_values(by='Purchase Date', ascending=False)
         
         st.dataframe(df_recent.head(10), use_container_width=True)
