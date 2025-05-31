@@ -112,7 +112,7 @@ def add_transaction_to_sheet(user, purchase_date: datetime, item, amount, catego
         return False
 
 # --- Streamlit App UI ---
-st.title("💸 Personal Expense & Income Tracker")
+st.title("💸 Personal Expense Tracker")
 st.markdown("Easily log your financial transactions to keep track of where your money goes.")
 
 st.markdown("---") # Visual separator
