@@ -81,7 +81,7 @@ except Exception as e:
     st.stop()
 
 # --- Function to Add Data to Google Sheet ---
-def add_transaction_to_sheet(user, purchase_date, item, amount, category, payment_method):
+def add_transaction_to_sheet(user, purchase_date: datetime, item, amount, category, payment_method):
     """
     Appends a new row of transaction data (expense or income) to the Google Sheet.
     """
@@ -98,7 +98,7 @@ def add_transaction_to_sheet(user, purchase_date, item, amount, category, paymen
         new_row_values = [
             jakarta_time.strftime("%m-%d-%Y %H:%M:%S"), # Timestamp
             user,
-            purchase_date.strftime("%m/%d/%Y"), # Windows: %#m/%#d. Linux/macOS: %-m/%-d
+            purchase_date.date().isoformat(),
             item,
             amount,
             category,
