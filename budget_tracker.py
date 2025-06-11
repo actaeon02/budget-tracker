@@ -291,6 +291,6 @@ if not df_all_data.empty:
 
     df_display = df_display.drop("Timestamp", axis=1)
 
-    st.dataframe(df_display.tail(10), use_container_width=True)
+    st.dataframe(df_display.tail(23), use_container_width=True)
 else:
     st.info("No transactions found in the sheet yet. Add your first one above!")
