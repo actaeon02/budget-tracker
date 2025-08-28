@@ -173,7 +173,7 @@ if menu == "Expenses":
         )
 
         method = st.radio(
-            "Payment Method", ["CC", "Debit", "Cash"], key="expense_method"
+            "Payment Method", ["CC Mikael", "CC Josephine", "Debit", "Cash"], key="expense_method"
         )
 
         submit = st.form_submit_button("➕ Add Expense")
