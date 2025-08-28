@@ -98,23 +98,105 @@ if menu == "Expenses":
     st.header("💳 Expense Tracker")
     st.subheader("Record a New Expense")
 
+    # Initialize session state for the date and amount
+    if "expense_date" not in st.session_state:
+        st.session_state.expense_date = datetime.today().date()
+    if "expense_amount" not in st.session_state:
+        st.session_state.expense_amount = 0.01
+
+    # Get a list of unique descriptions from expenses data
+    unique_descriptions = ["New Entry"] + list(expenses_df["Item"].unique())
+
+    # This is a new callback function to update the amount
+    def update_amount():
+        selected_desc = st.session_state.description_select
+        if selected_desc != "New Entry":
+            latest_amount_df = expenses_df[
+                expenses_df["Item"] == selected_desc
+            ].sort_values("Purchase Date", ascending=False)
+            if not latest_amount_df.empty:
+                st.session_state.expense_amount = latest_amount_df["Amount"].iloc[0]
+        else:
+            st.session_state.expense_amount = 0.01
+
+    # --- Description and Amount Logic (Outside the Form) ---
+    selected_description = st.selectbox(
+        "Description",
+        unique_descriptions,
+        key="description_select",
+        on_change=update_amount,
+    )
+
+    # Use an if/else block to get the final item description
+    item = ""
+    if selected_description == "New Entry":
+        item = st.text_input("New Description")
+    else:
+        item = selected_description
+
     with st.form("expense_form", clear_on_submit=True):
         user = st.radio("Who?", ["Mikael", "Josephine"], key="expense_user")
-        purchase_date = st.date_input("Date", value=datetime.today().date(), key="expense_date")
-        item = st.text_input("Description", key="expense_desc")
-        amount = st.number_input("Amount", min_value=0.01, format="%.2f", key="expense_amount")
-        category = st.selectbox("Category", [
-            "Bills", "Subscriptions", "Entertainment", "Food & Drink", "Groceries",
-            "Health & Wellbeing", "Shopping", "Transport", "Travel", "Business",
-            "Laundry", "Gifts", "Investment", "Other"
-        ], key="expense_category")
-        method = st.radio("Payment Method", ["CC", "Debit", "Cash"], key="expense_method")
+
+        # Use session state to manage the date
+        purchase_date = st.date_input(
+            "Date", value=st.session_state.expense_date, key="expense_date_input"
+        )
+
+        # The amount input, populated from session state
+        amount = st.number_input(
+            "Amount",
+            min_value=0.01,
+            format="%.2f",
+            value=st.session_state.expense_amount,
+            key="expense_amount_input",
+        )
+
+        category = st.selectbox(
+            "Category",
+            [
+                "Bills",
+                "Subscriptions",
+                "Entertainment",
+                "Food & Drink",
+                "Groceries",
+                "Health & Wellbeing",
+                "Shopping",
+                "Transport",
+                "Travel",
+                "Business",
+                "Laundry",
+                "Gifts",
+                "Investment",
+                "Other",
+            ],
+            key="expense_category",
+        )
+
+        method = st.radio(
+            "Payment Method", ["CC", "Debit", "Cash"], key="expense_method"
+        )
+
         submit = st.form_submit_button("➕ Add Expense")
+
         if submit and item and amount > 0:
-            timestamp = datetime.now(pytz.timezone("Asia/Jakarta")).strftime("%m/%d/%Y %H:%M:%S")
-            row = [timestamp, user, purchase_date.strftime("%m/%d/%Y"), item, amount, category, method]
+            timestamp = datetime.now(pytz.timezone("Asia/Jakarta")).strftime(
+                "%m/%d/%Y %H:%M:%S"
+            )
+            row = [
+                timestamp,
+                user,
+                purchase_date.strftime("%m/%d/%Y"),
+                item,
+                amount,
+                category,
+                method,
+            ]
             ws_expenses.append_row(row)
             st.success("Expense added!")
+
+            # Keep the last selected date and reset the amount for the next entry
+            st.session_state.expense_date = purchase_date
+            st.session_state.expense_amount = 0.01
             st.rerun()
 
     # Expense by Category
