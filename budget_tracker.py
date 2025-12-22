@@ -98,6 +98,23 @@ if menu == "Expenses":
     st.header("💳 Expense Tracker")
     st.subheader("Record a New Expense")
 
+    category_options = [
+        "Bills",
+        "Subscriptions",
+        "Entertainment",
+        "Food & Drink",
+        "Groceries",
+        "Health & Wellbeing",
+        "Shopping",
+        "Transport",
+        "Travel",
+        "Business",
+        "Laundry",
+        "Gifts",
+        "Investment",
+        "Other",
+    ]
+
     # Initialize session state for the date and amount
     if "expense_date" not in st.session_state:
         st.session_state.expense_date = datetime.today().date()
@@ -108,23 +125,31 @@ if menu == "Expenses":
     unique_descriptions = ["New Entry"] + list(expenses_df["Item"].unique())
 
     # This is a new callback function to update the amount
-    def update_amount():
+    def update_fields():
         selected_desc = st.session_state.description_select
         if selected_desc != "New Entry":
-            latest_amount_df = expenses_df[
+            latest_record_df = expenses_df[
                 expenses_df["Item"] == selected_desc
             ].sort_values("Purchase Date", ascending=False)
-            if not latest_amount_df.empty:
-                st.session_state.expense_amount = latest_amount_df["Amount"].iloc[0]
+
+            if not latest_record_df.empty:
+                # Update Amount
+                st.session_state.expense_amount = float(latest_record_df["Amount"].iloc[0])
+
+                # Update Category
+                prev_cat = latest_record_df["Category"].iloc[0]
+                if prev_cat in category_options:
+                    st.session_state.expense_category = prev_cat
         else:
             st.session_state.expense_amount = 0.01
+            st.session_state.expense_category = "Other"
 
     # --- Description and Amount Logic (Outside the Form) ---
     selected_description = st.selectbox(
         "Description",
         unique_descriptions,
         key="description_select",
-        on_change=update_amount,
+        on_change=update_fields,
     )
 
     # Use an if/else block to get the final item description
@@ -153,22 +178,7 @@ if menu == "Expenses":
 
         category = st.selectbox(
             "Category",
-            [
-                "Bills",
-                "Subscriptions",
-                "Entertainment",
-                "Food & Drink",
-                "Groceries",
-                "Health & Wellbeing",
-                "Shopping",
-                "Transport",
-                "Travel",
-                "Business",
-                "Laundry",
-                "Gifts",
-                "Investment",
-                "Other",
-            ],
+            category_options,
             key="expense_category",
         )
 
