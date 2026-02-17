@@ -176,14 +176,8 @@ if menu == "Expenses":
             key="expense_amount_input",
         )
 
-        category = st.selectbox(
-            "Category",
-            category_options,
-            key="expense_category",
-        )
-
         method = st.radio(
-            "Payment Method", ["CC Mikael", "CC Josephine", "Debit", "Cash"], key="expense_method"
+            "Payment Method", ["CC Mikael", "CC Josephine", "Debit", "Cash", "PayLater"], key="expense_method"
         )
 
         submit = st.form_submit_button("➕ Add Expense")
@@ -198,7 +192,7 @@ if menu == "Expenses":
                 purchase_date.strftime("%m/%d/%Y"),
                 item,
                 amount,
-                category,
+                st.session_state.expense_category,
                 method,
             ]
             ws_expenses.append_row(row)
