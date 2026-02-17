@@ -219,7 +219,7 @@ if menu == "Expenses":
         target_categories = ["Bills", "Food & Drink", "Transport"]
         filtered = expenses_period[
             (expenses_period["Category"].isin(target_categories)) &
-            (expenses_period["Method"] != "PayLater")
+            (expenses_period["Payment Method"] != "PayLater")
             ]
         category_spending = filtered.groupby("Category")["Amount"].sum().reset_index()
         full_category_df = pd.DataFrame({"Category": target_categories})
