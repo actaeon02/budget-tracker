@@ -337,35 +337,35 @@ elif menu == "Income":
     st.altair_chart(bar_income + text_income, use_container_width=True)
 
 # --- Budget Tab ---
-elif menu == "Budget":
-    st.header("📈 Budget Overview")
-    st.markdown(f"Budget period: **{period_start}** to **{period_end - timedelta(days=1)}**")
+# elif menu == "Budget":
+#     st.header("📈 Budget Overview")
+#     st.markdown(f"Budget period: **{period_start}** to **{period_end - timedelta(days=1)}**")
 
-    if not budget_df.empty and not expenses_period.empty:
-        df_sum = expenses_period.groupby("Category")["Amount"].sum().reset_index()
-        df_merged = pd.merge(budget_df, df_sum, on="Category", how="left").fillna(0)
-        df_merged["Total Budget"] = pd.to_numeric(df_merged["Total Budget"], errors="coerce")
-        df_merged["Remaining"] = df_merged["Total Budget"] - df_merged["Amount"]
+#     if not budget_df.empty and not expenses_period.empty:
+#         df_sum = expenses_period.groupby("Category")["Amount"].sum().reset_index()
+#         df_merged = pd.merge(budget_df, df_sum, on="Category", how="left").fillna(0)
+#         df_merged["Total Budget"] = pd.to_numeric(df_merged["Total Budget"], errors="coerce")
+#         df_merged["Remaining"] = df_merged["Total Budget"] - df_merged["Amount"]
 
-        # Format for display (accounting style with commas, parentheses for negatives)
-        display_df = df_merged[["Category", "Mikael", "Josephine", "Total Budget", "Amount", "Remaining"]].copy()
-        for col in ["Mikael", "Josephine", "Total Budget", "Amount", "Remaining"]:
-            display_df[col] = display_df[col].apply(lambda x: f"{x:,.0f}" if x >= 0 else "0")
+#         # Format for display (accounting style with commas, parentheses for negatives)
+#         display_df = df_merged[["Category", "Mikael", "Josephine", "Total Budget", "Amount", "Remaining"]].copy()
+#         for col in ["Mikael", "Josephine", "Total Budget", "Amount", "Remaining"]:
+#             display_df[col] = display_df[col].apply(lambda x: f"{x:,.0f}" if x >= 0 else "0")
 
-        # Show in Streamlit
-        st.dataframe(display_df)
+#         # Show in Streamlit
+#         st.dataframe(display_df)
 
-        bar = alt.Chart(df_merged).mark_bar().encode(
-            x=alt.X("Category", axis=alt.Axis(labelAngle=-30)),
-            y=alt.Y("Total Budget", title="IDR"),
-            y2="Amount",
-            color=alt.condition(
-                alt.datum["Amount"] > alt.datum["Total Budget"],
-                alt.value("red"),
-                alt.value("green")
-            ),
-            tooltip=["Category", "Total Budget", "Amount", "Remaining"]
-        )
-        st.altair_chart(bar, use_container_width=True)
-    else:
-        st.info("No budget or expense data found.")
+#         bar = alt.Chart(df_merged).mark_bar().encode(
+#             x=alt.X("Category", axis=alt.Axis(labelAngle=-30)),
+#             y=alt.Y("Total Budget", title="IDR"),
+#             y2="Amount",
+#             color=alt.condition(
+#                 alt.datum["Amount"] > alt.datum["Total Budget"],
+#                 alt.value("red"),
+#                 alt.value("green")
+#             ),
+#             tooltip=["Category", "Total Budget", "Amount", "Remaining"]
+#         )
+#         st.altair_chart(bar, use_container_width=True)
+#     else:
+#         st.info("No budget or expense data found.")
