@@ -217,7 +217,10 @@ if menu == "Expenses":
     st.subheader("📊 Monthly Category Spending")
     if not expenses_period.empty:
         target_categories = ["Bills", "Food & Drink", "Transport"]
-        filtered = expenses_period[expenses_period["Category"].isin(target_categories)]
+        filtered = expenses_period[
+            (expenses_period["Category"].isin(target_categories)) &
+            (expenses_period["Method"] != "PayLater")
+            ]
         category_spending = filtered.groupby("Category")["Amount"].sum().reset_index()
         full_category_df = pd.DataFrame({"Category": target_categories})
         category_spending = pd.merge(full_category_df, category_spending, on="Category", how="left").fillna(0)
