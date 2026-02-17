@@ -191,8 +191,6 @@ if menu == "Expenses":
 
         submit = st.form_submit_button("➕ Add Expense")
 
-        st.dataframe({"Amount": [amount], "Category": [category]})
-
         if submit and item and amount > 0:
             timestamp = datetime.now(pytz.timezone("Asia/Jakarta")).strftime(
                 "%m/%d/%Y %H:%M:%S"
