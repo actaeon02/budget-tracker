@@ -251,8 +251,7 @@ if menu == "Expenses":
     # Spending per User
     st.subheader("📊 Total Spending Per User")
     if not expenses_period.empty:
-        user_spending = expenses_period.groupby("User")["Amount"].sum().reset_index()
-
+        user_spending = expenses_period[expenses_period["Payment Method"] != "PayLater"].groupby("User")["Amount"].sum().reset_index()
         user_order = user_spending.sort_values("Amount", ascending=False)["User"].tolist()
         user_spending["User"] = pd.Categorical(user_spending["User"], categories=user_order, ordered=True)
 
