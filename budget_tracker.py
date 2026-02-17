@@ -243,10 +243,10 @@ if menu == "Expenses":
             text=alt.Text("Amount:Q", format=",.0f")
         )
 
-        st.altair_chart(bar + text, width='stretch')
+        st.altair_chart(bar + text, use_container_width=True)
         st.dataframe(category_spending, column_config={
             "Amount": st.column_config.NumberColumn("Amount", format='accounting')
-        }, width='stretch')
+        }, use_container_width=True)
 
     # Spending per User
     st.subheader("📊 Total Spending Per User")
@@ -274,20 +274,20 @@ if menu == "Expenses":
             text=alt.Text("Amount:Q", format=",.0f")
         )
 
-        st.altair_chart(bar_user + text_user, width='stretch')
+        st.altair_chart(bar_user + text_user, use_container_width=True)
 
         # Sort user_spending by Amount descending
         user_spending_sorted = user_spending.sort_values("Amount", ascending=False).reset_index(drop=True)
         st.dataframe(user_spending_sorted, column_config={
             "Amount": st.column_config.NumberColumn("Amount", format='accounting')
-        }, width='stretch')
+        }, use_container_width=True)
 
     # Recent Transactions
     st.subheader("📝 Recent Transactions")
     if not expenses_df.empty:
         df_show = expenses_df.copy()
         df_show["Purchase Date"] = df_show["Purchase Date"].dt.date
-        st.dataframe(df_show.tail(25).drop(columns=["Timestamp"]), width='stretch')
+        st.dataframe(df_show.tail(25).drop(columns=["Timestamp"]), use_container_width=True)
 
 # --- Income Tab ---
 elif menu == "Income":
@@ -335,7 +335,7 @@ elif menu == "Income":
         text=alt.Text("Amount:Q", format=",.0f")
     )
 
-    st.altair_chart(bar_income + text_income, width='stretch')
+    st.altair_chart(bar_income + text_income, use_container_width=True)
 
 # --- Budget Tab ---
 elif menu == "Budget":
@@ -367,6 +367,6 @@ elif menu == "Budget":
             ),
             tooltip=["Category", "Total Budget", "Amount", "Remaining"]
         )
-        st.altair_chart(bar, width='stretch')
+        st.altair_chart(bar, use_container_width=True)
     else:
         st.info("No budget or expense data found.")
