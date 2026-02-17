@@ -17,7 +17,7 @@ st.set_page_config(
 
 # --- App Title and Tab Menu ---
 st.title("💸 Personal Finance Tracker")
-menu = st.radio("📚 Select View", ["Expenses", "Income", "Budget"], horizontal=True)
+menu = st.radio("📚 Select View", ["Expenses", "Income"], horizontal=True)
 
 # --- Google Sheets Connection Setup ---
 try:
