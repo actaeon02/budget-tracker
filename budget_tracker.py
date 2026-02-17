@@ -41,10 +41,10 @@ try:
     )
     spreadsheet_url = gcp_secrets["spreadsheet"]
 except Exception:
-    SERVICE_ACCOUNT_FILE = r"C:\\Users\\Mikael Andrew\\service_account_keys.json"
+    SERVICE_ACCOUNT_FILE = r"C:\\Users\\Mikael\\service_account_keys.json"
     SCOPE = ['https://www.googleapis.com/auth/spreadsheets']
     credentials = Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPE)
-    spreadsheet_url = "https://docs.google.com/spreadsheets/d/1DZc7Ls-3xDOgRG5OLhTcSsjDvrLw9YeA-gYeLJ9hOiE/edit#gid=258870691"
+    spreadsheet_url = "https://docs.google.com/spreadsheets/d/14XBx3LvGTUOmx5tN43OSWyabT5sdUHML2h2rfI6YemI/edit?gid=258870691"
 
 # Connect to Google Sheets
 gc = gspread.authorize(credentials)
@@ -120,6 +120,8 @@ if menu == "Expenses":
         st.session_state.expense_date = datetime.today().date()
     if "expense_amount" not in st.session_state:
         st.session_state.expense_amount = 0.01
+    if "expense_category" not in st.session_state:
+        st.session_state.expense_category = "Other"
 
     # Get a list of unique descriptions from expenses data
     unique_descriptions = ["New Entry"] + list(expenses_df["Item"].unique())
@@ -172,8 +174,15 @@ if menu == "Expenses":
             "Amount",
             min_value=0.01,
             format="%.2f",
-            value=st.session_state.expense_amount,
-            key="expense_amount_input",
+            # value=st.session_state.expense_amount,
+            key="expense_amount",
+        )
+
+        # Category selector
+        category = st.selectbox(
+            "Category",
+            category_options,
+            key="expense_category",
         )
 
         method = st.radio(
@@ -181,6 +190,8 @@ if menu == "Expenses":
         )
 
         submit = st.form_submit_button("➕ Add Expense")
+
+        st.dataframe({"Amount": [amount], "Category": [category]})
 
         if submit and item and amount > 0:
             timestamp = datetime.now(pytz.timezone("Asia/Jakarta")).strftime(
@@ -192,7 +203,7 @@ if menu == "Expenses":
                 purchase_date.strftime("%m/%d/%Y"),
                 item,
                 amount,
-                st.session_state.expense_category,
+                category,
                 method,
             ]
             ws_expenses.append_row(row)
@@ -200,7 +211,6 @@ if menu == "Expenses":
 
             # Keep the last selected date and reset the amount for the next entry
             st.session_state.expense_date = purchase_date
-            st.session_state.expense_amount = 0.01
             st.rerun()
 
     # Expense by Category
@@ -230,10 +240,10 @@ if menu == "Expenses":
             text=alt.Text("Amount:Q", format=",.0f")
         )
 
-        st.altair_chart(bar + text, use_container_width=True)
+        st.altair_chart(bar + text, width='stretch')
         st.dataframe(category_spending, column_config={
             "Amount": st.column_config.NumberColumn("Amount", format='accounting')
-        }, use_container_width=True)
+        }, width='stretch')
 
     # Spending per User
     st.subheader("📊 Total Spending Per User")
@@ -261,20 +271,20 @@ if menu == "Expenses":
             text=alt.Text("Amount:Q", format=",.0f")
         )
 
-        st.altair_chart(bar_user + text_user, use_container_width=True)
+        st.altair_chart(bar_user + text_user, width='stretch')
 
         # Sort user_spending by Amount descending
         user_spending_sorted = user_spending.sort_values("Amount", ascending=False).reset_index(drop=True)
         st.dataframe(user_spending_sorted, column_config={
             "Amount": st.column_config.NumberColumn("Amount", format='accounting')
-        }, use_container_width=True)
+        }, width='stretch')
 
     # Recent Transactions
     st.subheader("📝 Recent Transactions")
     if not expenses_df.empty:
         df_show = expenses_df.copy()
         df_show["Purchase Date"] = df_show["Purchase Date"].dt.date
-        st.dataframe(df_show.tail(25).drop(columns=["Timestamp"]), use_container_width=True)
+        st.dataframe(df_show.tail(25).drop(columns=["Timestamp"]), width='stretch')
 
 # --- Income Tab ---
 elif menu == "Income":
@@ -322,7 +332,7 @@ elif menu == "Income":
         text=alt.Text("Amount:Q", format=",.0f")
     )
 
-    st.altair_chart(bar_income + text_income, use_container_width=True)
+    st.altair_chart(bar_income + text_income, width='stretch')
 
 # --- Budget Tab ---
 elif menu == "Budget":
@@ -354,6 +364,6 @@ elif menu == "Budget":
             ),
             tooltip=["Category", "Total Budget", "Amount", "Remaining"]
         )
-        st.altair_chart(bar, use_container_width=True)
+        st.altair_chart(bar, width='stretch')
     else:
         st.info("No budget or expense data found.")
